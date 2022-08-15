@@ -21,7 +21,7 @@ func AddVoucher(c *gin.Context) {
 		return
 	}
 
-	s := services.VoucherService{ServiceDB: services.DB, Redis: services.REDIS, Ctx: services.CTX}
+	s := services.VoucherService{ServiceDB: services.DB, Redis: services.REDIS}
 	voucherId, e := s.AddVoucher(req)
 	if e != nil {
 		utils.SetError(e, c, &output, http.StatusBadRequest, http.StatusBadRequest)

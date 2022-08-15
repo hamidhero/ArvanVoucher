@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"github.com/go-redis/redis/v9"
+	"github.com/go-redis/redis"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/subosito/gotenv"
 	"gorm.io/driver/postgres"
@@ -51,8 +51,7 @@ func ConnectRedis() error {
 		DB:       0,  // use default DB
 	})
 
-	CTX = context.Background()
-	_, e := REDIS.Ping(CTX).Result()
+	_, e := REDIS.Ping().Result()
 
 	return e
 }

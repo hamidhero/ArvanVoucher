@@ -4,6 +4,7 @@ import (
 	"ArvanVoucher/requests"
 	"ArvanVoucher/services"
 	"ArvanVoucher/services/queue"
+	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +18,8 @@ import (
 
 func TestAddVoucher(t *testing.T) {
 	services.ConnectDB()
-	s := services.VoucherService{ServiceDB: services.DB}
+	services.ConnectRedis()
+	s := services.VoucherService{ServiceDB: services.DB, Redis: services.REDIS}
 
 	tt := time.Now().Add(time.Hour * 24)
 	tm := requests.DateTime{tt}
@@ -46,8 +48,9 @@ func TestAddToVoucherUsersQueue(t *testing.T) {
 	services.ConnectRedis()
 	services.ConnectRabbitMq()
 	s := queue.QueueService{
-		Rabbit:    services.RABBIT,
 		ServiceDB: services.DB,
+		Redis:     services.REDIS,
+		Ctx:       context.Background(),
 	}
 
 	req := requests.AddToQueueRequest{

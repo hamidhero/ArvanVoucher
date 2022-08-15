@@ -3,7 +3,6 @@ package services
 import (
 	"ArvanVoucher/models"
 	"ArvanVoucher/requests"
-	"context"
 	"encoding/json"
 	"errors"
 	"github.com/go-redis/redis"
@@ -16,13 +15,12 @@ import (
 type VoucherService struct {
 	ServiceDB *gorm.DB
 	Redis     *redis.Client
-	Ctx       context.Context
 }
 
 //AddVoucher creates new voucher
 func (service VoucherService) AddVoucher(req requests.AddVoucherRequest) (*int64, error) {
 	//check duplication from redis
-	res, _ := service.Redis.Get(service.Ctx, req.VoucherCode).Result()
+	res, _ := service.Redis.Get(req.VoucherCode).Result()
 	if len(res) > 0 {
 		return nil, errors.New("VoucherAlreadyExists")
 	}
@@ -65,13 +63,13 @@ func (service VoucherService) AddVoucher(req requests.AddVoucherRequest) (*int64
 		Exp:    duration,
 	}
 	redisData, _ := json.Marshal(queueData)
-	if e := service.Redis.Set(service.Ctx, req.VoucherCode, redisData, duration).Err(); e != nil {
+	if e := service.Redis.Set(req.VoucherCode, redisData, duration).Err(); e != nil {
 		trx.Rollback()
 		return nil, e
 	}
 
 	//add _count key for voucher to redis to guarantee atomic count for registrations
-	if e := service.Redis.Set(service.Ctx, req.VoucherCode+"_count", req.Limit, duration).Err(); e != nil {
+	if e := service.Redis.Set(req.VoucherCode+"_count", req.Limit, duration).Err(); e != nil {
 		trx.Rollback()
 		return nil, e
 	}
@@ -84,8 +82,8 @@ func (service VoucherService) AddVoucher(req requests.AddVoucherRequest) (*int64
 func (service VoucherService) GetVoucherReport(voucherCode string) ([]int64, error) {
 	//iterate through redis for this voucher registrations
 	var res []int64
-	iter := REDIS.Scan(CTX, 0, voucherCode+"#*", 0).Iterator()
-	for iter.Next(CTX) {
+	iter := REDIS.Scan(0, voucherCode+"#*", 0).Iterator()
+	for iter.Next() {
 		s := strings.Split(iter.Val(), "#")
 		userId, e := strconv.ParseInt(s[1], 10, 64)
 		if e != nil {

@@ -19,31 +19,31 @@ type QueueService struct {
 
 func (service QueueService) AddToQueue(data requests.AddToQueueRequest) error {
 	//decrease limit count and check if it is not exceeded. this part is atomic
-	redisCount := service.Redis.Decr(service.Ctx, data.Name+"_count").Val()
+	redisCount := service.Redis.Decr(data.Name + "_count").Val()
 	if int(redisCount) < 1 {
 		return errors.New("LimitExceeded")
 	}
 
 	//get voucher data
-	res, e := service.Redis.Get(service.Ctx, data.Name).Result()
+	res, e := service.Redis.Get(data.Name).Result()
 	if e != nil {
-		service.Redis.Incr(service.Ctx, data.Name+"_count")
+		service.Redis.Incr(data.Name + "_count")
 		return e
 	}
 
 	var queueData requests.QueueRequest
 	e = json.Unmarshal([]byte(res), &queueData)
 	if e != nil {
-		service.Redis.Incr(service.Ctx, data.Name+"_count")
+		service.Redis.Incr(data.Name + "_count")
 		return e
 	}
 
 	//check user duplication for this voucher
 	mobile, _ := json.Marshal(data.Data)
 	key := data.Name + "#" + string(mobile)
-	res, _ = service.Redis.Get(service.Ctx, key).Result()
+	res, _ = service.Redis.Get(key).Result()
 	if len(res) > 0 {
-		service.Redis.Incr(service.Ctx, data.Name+"_count")
+		service.Redis.Incr(data.Name + "_count")
 		return errors.New("AlreadyRegistered")
 	}
 
@@ -51,14 +51,14 @@ func (service QueueService) AddToQueue(data requests.AddToQueueRequest) error {
 	data.Amount = &queueData.Amount
 	body, e := json.Marshal(data)
 	if e != nil {
-		service.Redis.Incr(service.Ctx, data.Name+"_count")
+		service.Redis.Incr(data.Name + "_count")
 		return e
 	}
 
 	//create rabbitMQ channel
 	ch, e := services.RABBIT.Channel()
 	if e != nil {
-		service.Redis.Incr(service.Ctx, data.Name+"_count")
+		service.Redis.Incr(data.Name + "_count")
 		return e
 	}
 	defer ch.Close()
@@ -92,12 +92,12 @@ func (service QueueService) AddToQueue(data requests.AddToQueueRequest) error {
 			Body:        body,
 		})
 	if e != nil {
-		service.Redis.Incr(service.Ctx, data.Name+"_count")
+		service.Redis.Incr(data.Name + "_count")
 		return e
 	}
 
 	//add user to redis for this voucher to avoid duplication
-	if e := service.Redis.Set(service.Ctx, key, nil, queueData.Exp).Err(); e != nil {
+	if e := service.Redis.Set(key, nil, queueData.Exp).Err(); e != nil {
 		return e
 	}
 
@@ -131,7 +131,7 @@ func (service QueueService) AddToVoucherUsersQueue(data requests.AddToQueueReque
 		return e
 	}
 	e = ch.PublishWithContext(
-		services.CTX,
+		service.Ctx,
 		"",     // exchange
 		q.Name, // routing key
 		false,  // mandatory
